@@ -82,17 +82,12 @@ class Connector:
                         if self.status:
                             ws.send(json.dumps({"type": "cmd_result", "data": "already running"}))
                             return
-                        self.data = {}
-                        self.status = True
-                        self.status_callback(Status(self.status, self.box, self.server))
-                        ws.send(json.dumps({"type": "cmd_result", "data": "started"}))
+                        self.start()
                     elif cmd == "stop":
                         if not self.status:
                             ws.send(json.dumps({"type": "cmd_result", "data": "already stopped"}))
                             return
-                        self.status = False
-                        self.status_callback(Status(self.status, self.box, self.server))
-                        ws.send(json.dumps({"type": "cmd_result", "data": "stopped"}))
+                        self.stop()
                     elif cmd.startswith("eval:"):
                         cmd = cmd[5:]
                         self.pool.add(lambda: ws.send(json.dumps({"type": "cmd_result", "data":
@@ -175,6 +170,18 @@ class Connector:
             # 等待随机时间
             time.sleep(5)
 
+    def start(self):
+        self.data = {}
+        self.status = True
+        self.ws.send(json.dumps({"type": "cmd_result", "data": "started"}))
+        self.status_callback(Status(self.status, self.box, self.server))
+
+    def stop(self):
+        self.status = False
+        self.ws.send(json.dumps({"type": "cmd_result", "data": "stopped"}))
+        self.status_callback(Status(self.status, self.box, self.server))
+
+
 
 class MainPage(lib.Pages.PageWithTitle):
     def __init__(self, book):
@@ -194,6 +201,7 @@ class MainPage(lib.Pages.PageWithTitle):
         self.oxygen = self.add_element(lib.Elements.Label(self, (192, 50), (24, 24), text="2000", font_size=24))
 
         self.status = self.add_element(lib.Elements.TextElement(self, (190, 78), "运行状态：空闲"))
+        self.status_bool = False
         self.box = self.add_element(lib.Elements.TextElement(self, (190, 93), "培养箱：在线"))
         self.server = self.add_element(lib.Elements.TextElement(self, (190, 108), "服务器: 未连接"))
 
@@ -202,11 +210,28 @@ class MainPage(lib.Pages.PageWithTitle):
 
         self.connector = Connector(book.base.env, "uuid", "address", self.status_handler, self.data_handler)
 
+        self.control_button = self.add_element(lib.Elements.LabelButton(self, size=(60, 30), func=self.control,
+                                                                        location=(105, 85), text="开始",
+                                                                        font_size=24, border_width=2))
+
+
     def active(self):
         super().active()
         self.connector.active()
 
+    def control(self):
+        if self.status_bool:
+            self.connector.stop()
+        else:
+            self.connector.start()
+
     def status_handler(self, status: Status):
+        self.status_bool = status.status
+        # 更新按钮文字
+        if status.status:
+            self.control_button.set_text("停止", False)
+        else:
+            self.control_button.set_text("开始", False)
         # 更新运行状态
         if status.status:
             self.status.set_text("运行状态：运行中", False)
