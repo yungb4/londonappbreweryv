@@ -353,6 +353,7 @@ class Elements:
                     cur_text = last_line
                     last_line = ""
             cur_text += text[start:]
+            last_line = text[start:]
             result.append(cur_text)
             height += font_size
             if height > area_size[1]:
@@ -374,7 +375,8 @@ class Elements:
                                   align=self.align)
             if len(self.content) > 1:
                 y = (self.size[1] - self.guide_line_height)*self.at/len(self.content)
-                self._image_draw.line((self.size[0], y, self.size[0], y+self.guide_line_height), self.color,
+                self._image_draw.line((self.size[0]-self.border[0]-1, y, self.size[0]-self.border[0]-1,
+                                       y+self.guide_line_height), self.color,
                                       width=self.guide_line_width)
             self.page.update(display, refresh)
 

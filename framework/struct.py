@@ -84,7 +84,7 @@ class Page:
         self.touch_records_clicked = []
         self.touch_records_slide_x = []
         self.touch_records_slide_y = []
-        self._background = _Image.new("RGB", (296, 128), (255, 255, 255))
+        self._background = _Image.new("RGBA", (296, 128), (255, 255, 255, 0))
         self._elements_rlock = _threading.RLock()
         self.touch_records_rlock = _threading.RLock()
         self.old_render = self._background
@@ -238,7 +238,7 @@ class Book:
             self.now_page = target
             self.Page = self.Pages[target]
             self.Page.active()
-            self.base.display()
+            self.base.display(display)
         else:
             raise KeyError("The targeted page is not found.")
 

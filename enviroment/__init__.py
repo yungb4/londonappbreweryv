@@ -163,6 +163,157 @@ class FakePage:
         return self
 
 
+class _SystemPage(_struct.Page):
+    def __init__(self, env):
+        super().__init__(self)
+        self.env = env
+        self.base = self
+
+
+class _PromptPage(_struct.Page):
+    def __init__(self, book):
+        super().__init__(book)
+        self.env = book.env
+        self.add_element(_lib.Elements.Image(self, (0, 0), self.env.prompt_img))
+        self.icon = self.add_element(_lib.Elements.Image(self, (65, 32), show=False))
+        self.text = self.add_element(_lib.Elements.MultiplePagesText(self, (61, 53), (174, 50), "", (3, 0)))
+        self.title = self.add_element(_lib.Elements.TextElement(self, (88, 34), "", font_size=16))
+        _cover_clicked = _Clicked((0, 296, 0, 128), lambda: None)
+        _cover_clicked.vibrate = False
+        self.touch_records_clicked = [_cover_clicked, _Clicked((210, 235, 28, 53), self.env.close_event)]
+
+    def set(self, title, text, icon=None):
+        if icon:
+            self.icon.set_show(True, False)
+            self.title.set_location((88, 34), False)
+        else:
+            self.icon.set_show(False, False)
+            self.title.set_location((65, 34), False)
+
+        self.title.set_text(title, False)
+        self.text.set_text(text, False)
+
+
+class _ChoicePage(_struct.Page):
+    def __init__(self, book):
+        super().__init__(book)
+        self.env = book.env
+        self.add_element(_lib.Elements.Image(self, (0, 0), self.env.choice_img))
+        self.icon = self.add_element(_lib.Elements.Image(self, (65, 32), show=False))
+        self.text = self.add_element(_lib.Elements.MultiplePagesText(self, (61, 53), (174, 30), "", (3, 0)))
+        self.title = self.add_element(_lib.Elements.TextElement(self, (88, 34), "", font_size=16))
+        self.left = self.add_element(_lib.Elements.Label(self, (61, 86), (85, 12), text="", font_size=16, align="center"))
+        self.right = self.add_element(_lib.Elements.Label(self, (148, 86), (85, 12), text="", font_size=16, align="center"))
+        _cover_clicked = _Clicked((0, 296, 0, 128), lambda: None)
+        _cover_clicked.vibrate = False
+        self.touch_records_clicked = [_cover_clicked,
+                                      _Clicked((210, 235, 28, 53), self.env.close_event),
+                                      _Clicked((59, 147, 82, 102), self.env.choice_handler, False),
+                                      _Clicked((147, 237, 82, 102), self.env.choice_handler, True)]
+
+    def set(self, title, text, left, right, icon=None):
+        if icon:
+            self.icon.set_show(True, False)
+            self.title.set_location((88, 34), False)
+        else:
+            self.icon.set_show(False, False)
+            self.title.set_location((65, 34), False)
+
+        self.left.set_text(left, False)
+        self.right.set_text(right, False)
+        self.title.set_text(title, False)
+        self.text.set_text(text, False)
+
+
+class _NoticePage(_struct.Page):
+    def __init__(self, book):
+        super().__init__(book)
+        self.env = book.base.env
+        self.touch_records_clicked = [_Clicked((0, 296, 0, 36), self.env.notice_handler, True),
+                                      _Clicked((0, 296, 36, 128), self.env.notice_handler, False)]
+
+
+class _SystemBook(_struct.Book):
+    def __init__(self, env):
+        super().__init__(self)
+        self.env = env
+        self.base = self
+        self.add_page("prompt", _PromptPage(self))
+        self.add_page("choice", _ChoicePage(self))
+        self.notice_img = env.notice_img
+        self.notice_alpha = env.notice_alpha
+        self.notice_touch_records_clicked = [_Clicked((0, 296, 0, 36), self.env.notice_handler, True),
+                                             _Clicked((0, 296, 36, 128), self.env.notice_handler, False)]
+        self._active = True
+
+    @property
+    def take_over(self):
+        if self.env.events_stack or self.env.notices:
+            return True
+        return False
+
+    @property
+    def touch_records_clicked(self):
+        if self.env.events_stack:
+            return self.Page.touch_records_clicked
+        elif self.env.notices:
+            return self.notice_touch_records_clicked
+        else:
+            return []
+
+    @property
+    def touch_records_slide_x(self):
+        return self.Page.touch_records_slide_x
+
+    @property
+    def touch_records_slide_y(self):
+        return self.Page.touch_records_slide_y
+
+    def set(self):
+        if self.env.events_stack:
+            handling = self.env.events_stack[-1]
+            if isinstance(handling, Choice):
+                self.change_page("choice", False, False)
+                self.Page.set(handling.title, handling.text, handling.false_text, handling.true_text, handling.icon)
+            else:
+                self.change_page("prompt", False, False)
+                self.Page.set(handling.title, handling.text, handling.icon)
+
+    def render(self):
+        if self.take_over:
+            if self.env.notices:
+                handling = self.env.notices[-1]
+                image = self.notice_img.copy()
+                draw = _ImageDraw.Draw(image)
+                if handling.icon:
+                    image.paste(handling.icon, (10, 9))
+                    draw.text((34, 10), handling.text, "black", font=self.get_font(16))
+                else:
+                    draw.text((10, 10), handling.text, "black", font=self.get_font(16))
+
+                page_img = self.Page.render()
+                (_, _, _, a) = page_img.split()
+                image.paste(self.Page.render, mask=a)
+
+                return image
+            return self.Page.render()
+
+    def display(self, refresh="a") -> None:
+        if self.take_over:
+            self.env.display(self.render(), refresh=refresh)
+
+    def update(self, page, refresh="a"):
+        if self.take_over:
+            now_image = self.env.Now.render()
+            self_image = self.render()
+            (_, _, _, a) = self_image.split()
+            now_image.paste(self_image, mask=a)
+            self.env.display(now_image, refresh=refresh)
+
+    def __getattr__(self, _):
+        return self
+
+
 class BluetoothApp:
     def __init__(self, name, func, env):
         self.name = name
@@ -264,9 +415,9 @@ class Env:
         self.ok_img = _Image.open("resources/images/ok.png")
         self.ok_alpha = self.ok_img.split()[3]
         self.prompt_img = _Image.open("resources/images/prompt.png")
-        self.prompt_alpha = self.prompt_img.split()[3]
+        # self.prompt_alpha = self.prompt_img.split()[3]
         self.choice_img = _Image.open("resources/images/choice.png")
-        self.choice_alpha = self.choice_img.split()[3]
+        # self.choice_alpha = self.choice_img.split()[3]
         self.notice_img = _Image.open("resources/images/notice.png")
         self.notice_alpha = self.notice_img.split()[3]
         self.on_img = _Image.open("resources/images/on.png").convert("RGBA")
@@ -276,24 +427,25 @@ class Env:
         self.next_img = _Image.open("resources/images/next.png").convert("RGBA")
         self.next_alpha = self.next_img.split()[3]
 
-        # choice
-        self._events_stack = []
+        # event
+        self.system_book = _SystemBook(self)
+        self.events_stack = []
 
-        self._fake = FakePage(self)
-        self._label_left = _lib.Elements.Label(self._fake, size=(85, 12), align="center", location=(0, 0))
-        self._label_right = _lib.Elements.Label(self._fake, size=(85, 12), align="center", location=(0, 0))
-        self._multiple_text = _lib.Elements.MultipleLinesText(self._fake, location=(0, 0), size=(0, 0), border=(3, 0))
-
-        self._event_close_clicked = _Clicked((210, 235, 28, 53), self._close_event)
-        self._false_clicked = _Clicked((59, 147, 82, 102), self._choice_handler, False)
-        self._true_clicked = _Clicked((147, 237, 82, 102), self._choice_handler, True)
-        self._cover_clicked = _Clicked((0, 296, 0, 128), lambda: None)
-        self._cover_clicked.vibrate = False
+        # self._fake = FakePage(self)
+        # self._label_left = _lib.Elements.Label(self._fake, size=(85, 12), align="center", location=(0, 0))
+        # self._label_right = _lib.Elements.Label(self._fake, size=(85, 12), align="center", location=(0, 0))
+        # self._multiple_text = _lib.Elements.MultipleLinesText(self._fake, location=(0, 0), size=(0, 0), border=(3, 0))
+        #
+        # self._event_close_clicked = _Clicked((210, 235, 28, 53), self.close_event)
+        # self._false_clicked = _Clicked((59, 147, 82, 102), self.choice_handler, False)
+        # self._true_clicked = _Clicked((147, 237, 82, 102), self.choice_handler, True)
+        # self._cover_clicked = _Clicked((0, 296, 0, 128), lambda: None)
+        # self._cover_clicked.vibrate = False
 
         # notice
-        self._notices = []
-        self._notice_clicked_s = [_Clicked((0, 296, 0, 36), self._notice_handler, True),
-                                  _Clicked((0, 296, 36, 128), self._notice_handler, False)]
+        self.notices = []
+        self._notice_clicked_s = [_Clicked((0, 296, 0, 36), self.notice_handler, True),
+                                  _Clicked((0, 296, 36, 128), self.notice_handler, False)]
 
         # APIs
 
@@ -393,41 +545,46 @@ class Env:
             self.display_lock.release()
             self._update_temp = False
 
-            draw = _ImageDraw.ImageDraw(image)
-            if self._events_stack:
-                handling = self._events_stack[-1]
-                if isinstance(handling, Choice):
-                    image.paste(self.choice_img, mask=self.choice_alpha)
-                    self._multiple_text.set_size((174, 30))
-                    self._label_left.set_text(handling.false_text)
-                    temp = self._label_left.render()
-                    a = temp.split()[3]
-                    image.paste(temp, (61, 86), mask=a)
-                    self._label_right.set_text(handling.true_text)
-                    temp = self._label_right.render()
-                    a = temp.split()[3]
-                    image.paste(temp, (148, 86), mask=a)
-                else:
-                    image.paste(self.prompt_img, mask=self.prompt_alpha)
-                    self._multiple_text.set_size((174, 48))
-                if handling.icon:
-                    image.paste(handling.icon, (65, 32))
-                    draw.text((88, 34), handling.title, "black", font=self.get_font(16))
-                else:
-                    draw.text((65, 34), handling.title, "black", font=self.get_font(16))
-                self._multiple_text.set_text(handling.text)
-                temp = self._multiple_text.render()
-                a = temp.split()[3]
-                image.paste(self._multiple_text.render(), (61, 53), mask=a)
-
-            if self._notices:
-                handling = self._notices[-1]
-                image.paste(self.notice_img, (0, 0), mask=self.notice_alpha)
-                if handling.icon:
-                    image.paste(handling.icon, (10, 9))
-                    draw.text((34, 10), handling.text, "black", font=self.get_font(16))
-                else:
-                    draw.text((10, 10), handling.text, "black", font=self.get_font(16))
+            self.system_book.set()
+            add_image = self.system_book.render()
+            if add_image:
+                (_, _, _, a) = add_image.split()
+                image.paste(add_image, mask=a)
+            # draw = _ImageDraw.ImageDraw(image)
+            # if self.events_stack:
+            #     handling = self.events_stack[-1]
+            #     if isinstance(handling, Choice):
+            #         image.paste(self.choice_img, mask=self.choice_alpha)
+            #         self._multiple_text.set_size((174, 30))
+            #         self._label_left.set_text(handling.false_text)
+            #         temp = self._label_left.render()
+            #         a = temp.split()[3]
+            #         image.paste(temp, (61, 86), mask=a)
+            #         self._label_right.set_text(handling.true_text)
+            #         temp = self._label_right.render()
+            #         a = temp.split()[3]
+            #         image.paste(temp, (148, 86), mask=a)
+            #     else:
+            #         image.paste(self.prompt_img, mask=self.prompt_alpha)
+            #         self._multiple_text.set_size((174, 48))
+            #     if handling.icon:
+            #         image.paste(handling.icon, (65, 32))
+            #         draw.text((88, 34), handling.title, "black", font=self.get_font(16))
+            #     else:
+            #         draw.text((65, 34), handling.title, "black", font=self.get_font(16))
+            #     self._multiple_text.set_text(handling.text)
+            #     temp = self._multiple_text.render()
+            #     a = temp.split()[3]
+            #     image.paste(self._multiple_text.render(), (61, 53), mask=a)
+            # 
+            # if self.notices:
+            #     handling = self.notices[-1]
+            #     image.paste(self.notice_img, (0, 0), mask=self.notice_alpha)
+            #     if handling.icon:
+            #         image.paste(handling.icon, (10, 9))
+            #         draw.text((34, 10), handling.text, "black", font=self.get_font(16))
+            #     else:
+            #         draw.text((10, 10), handling.text, "black", font=self.get_font(16))
 
             if self.show_left_back:
                 image.paste(self.left_img, mask=self.left_img_alpha)
@@ -460,11 +617,11 @@ class Env:
     def back_home(self) -> bool:
         self.back_stack.queue.clear()
         flag = False
-        if self._notices:
-            self._notices = []
+        if self.notices:
+            self.notices = []
             flag = True
-        while self._events_stack:
-            self._close_event()
+        while self.events_stack:
+            self.close_event()
             flag = True
         if flag:
             self.TouchHandler.clear_clicked()
@@ -489,11 +646,11 @@ class Env:
         self._update_temp = self.show_left_back or self.show_right_back
         self.show_left_back = False
         self.show_right_back = False
-        if self._notices:
-            self._notice_handler(False)
+        if self.notices:
+            self.notice_handler(False)
             return True
-        if self._events_stack:
-            self._close_event()
+        if self.events_stack:
+            self.close_event()
             return True
         if self.back_stack.empty():
             if self._update_temp:
@@ -594,59 +751,61 @@ class Env:
     def screenshot(self):
         return self.Now.Book.render()
 
-    def _touch_setter(self):
-        if self._notices:
-            self.TouchHandler.set_clicked(self._notice_clicked_s)
-        elif self._events_stack:
-            if isinstance(self._events_stack[-1], Choice):
-                self.TouchHandler.set_clicked([self._cover_clicked, self._event_close_clicked, self._true_clicked,
-                                               self._false_clicked])
-            else:
-                self.TouchHandler.set_clicked([self._cover_clicked, self._event_close_clicked])
-        else:
-            self.TouchHandler.clear_clicked()
+    # def _touch_setter(self):
+    #     if self.notices:
+    #         self.TouchHandler.set_clicked(self._notice_clicked_s)
+    #     elif self.events_stack:
+    #         if isinstance(self.events_stack[-1], Choice):
+    #             self.TouchHandler.set_clicked([self._cover_clicked, self._event_close_clicked, self._true_clicked,
+    #                                            self._false_clicked])
+    #         else:
+    #             self.TouchHandler.set_clicked([self._cover_clicked, self._event_close_clicked])
+    #     else:
+    #         self.TouchHandler.clear_clicked()
 
-    def _close_event(self):
-        handling = self._events_stack[-1]
+    def close_event(self):
+        handling = self.events_stack[-1]
         if isinstance(handling, Choice):
             handling.result = False
             handling.event_1.set()
             handling.event_2.wait()
             handling.event_1.set()
-        self._events_stack.pop()
-        self._touch_setter()
+        self.events_stack.pop()
+        # self._touch_setter()
         self.display()
 
-    def _choice_handler(self, result):
+    def choice_handler(self, result):
         self._update_temp = True
-        handling = self._events_stack[-1]
+        handling = self.events_stack[-1]
         handling.result = result
         handling.event_1.set()
         handling.event_2.wait()
-        self._events_stack.pop()
+        self.events_stack.pop()
         handling.event_1.set()
-        self._touch_setter()
+        # self._touch_setter()
         if handling.display:
             self.display()
 
-    def _notice_handler(self, result):
-        if result:
-            func = self._notices[-1].func
-            del self._notices[-1]
+    def notice_handler(self, op):
+        if not self.notices:
+            return
+        if op:
+            func = self.notices[-1].func
+            del self.notices[-1]
             self._update_temp = True
-            self._touch_setter()
+            # self._touch_setter()
             func()
             if self._update_temp:
                 self.display()
         else:
-            del self._notices[-1]
-            self._touch_setter()
+            del self.notices[-1]
+            # self._touch_setter()
             self.display()
 
     def choice(self, title, text="", icon=None, false_text="取消", true_text="确认", display=False) -> bool:
         c = Choice(title, text, icon, false_text, true_text, display)
-        self._events_stack.append(c)
-        self._touch_setter()
+        self.events_stack.append(c)
+        # self._touch_setter()
         self.display()
         c.event_1.wait()
         c.event_1.clear()
@@ -657,13 +816,13 @@ class Env:
 
     def prompt(self, title, text="", icon=None):
         p = Prompt(title, text, icon)
-        self._events_stack.append(p)
-        self._touch_setter()
+        self.events_stack.append(p)
+        # self._touch_setter()
         self.display()
 
     def notice(self, text="", icon=None, func=lambda: None):
-        self._notices.append(Notice(text, icon, func))
-        self._touch_setter()
+        self.notices.append(Notice(text, icon, func))
+        # self._touch_setter()
         self.display()
 
     def feedback_vibrate(self):

@@ -118,9 +118,15 @@ class TouchHandler:
         o_t = ICNT_Old.Touch
         d_x = ICNT_Dev.X[0]
         d_y = ICNT_Dev.Y[0]
-        app_slide_x = self.env.Now.touch_records_slide_x
-        app_slide_y = self.env.Now.touch_records_slide_y
-        app_clicked = self.env.Now.touch_records_clicked
+
+        if self.env.system_book.take_over:
+            app_clicked = self.env.system_book.touch_records_clicked
+            app_slide_x = self.env.system_book.touch_records_slide_x
+            app_slide_y = self.env.system_book.touch_records_slide_y
+        else:
+            app_slide_x = self.env.Now.touch_records_slide_x
+            app_slide_y = self.env.Now.touch_records_slide_y
+            app_clicked = self.env.Now.touch_records_clicked
 
         if self.env.screen_reversed:
             d_x = 296 - d_x
@@ -141,9 +147,9 @@ class TouchHandler:
             for i in _ReIter(app_slide_y):
                 if i.area[0] <= d_x <= i.area[1] and i.area[2] <= d_y <= i.area[3]:
                     i.temp_location = (d_x, d_y)
-            for i in _ReIter(self.clicked):
-                if i.area[0] <= d_x <= i.area[1] and i.area[2] <= d_y <= i.area[3]:
-                    i.temp_location = (d_x, d_y)
+            # for i in _ReIter(self.clicked):
+            #     if i.area[0] <= d_x <= i.area[1] and i.area[2] <= d_y <= i.area[3]:
+            #         i.temp_location = (d_x, d_y)
             for i in _ReIter(app_clicked):
                 if i.area[0] <= d_x <= i.area[1] and i.area[2] <= d_y <= i.area[3]:
                     i.temp_location = (d_x, d_y)
@@ -235,7 +241,16 @@ class TouchHandler:
                 for i in self.clicked:
                     i.active = False
             else:
-                for i in _ReIter(self.clicked):
+                # for i in _ReIter(self.clicked):
+                #     if i.active:
+                #         i.active = False
+                #         if i.area[0] <= d_x <= i.area[1] and i.area[2] <= d_y <= i.area[3]:
+                #             self.pool.add(i.func, *i.args, **i.kwargs)
+                #             if i.vibrate:
+                #                 self.env.feedback_vibrate_async()
+                #             break
+                # else:
+                for i in _ReIter(app_clicked):
                     if i.active:
                         i.active = False
                         if i.area[0] <= d_x <= i.area[1] and i.area[2] <= d_y <= i.area[3]:
@@ -243,15 +258,6 @@ class TouchHandler:
                             if i.vibrate:
                                 self.env.feedback_vibrate_async()
                             break
-                else:
-                    for i in _ReIter(app_clicked):
-                        if i.active:
-                            i.active = False
-                            if i.area[0] <= d_x <= i.area[1] and i.area[2] <= d_y <= i.area[3]:
-                                self.pool.add(i.func, *i.args, **i.kwargs)
-                                if i.vibrate:
-                                    self.env.feedback_vibrate_async()
-                                break
 
         elif d_t and o_t:  # Keep touching
             if ICNT_Dev.TouchCount >= 2:
