@@ -531,6 +531,8 @@ class Env:
 
     def display(self, image=None, refresh="a"):
         if image:
+            if self.screen_reversed:
+                image = image.rotate(180)
             self.Screen.wait_busy()
             if refresh == "a":
                 self.Screen.display_auto(image)
