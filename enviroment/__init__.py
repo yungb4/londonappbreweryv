@@ -593,8 +593,8 @@ class Env:
             if self._home_bar:
                 image.paste(self.bar_img, mask=self.bar_img_alpha)
 
-            if self.screen_reversed:
-                image = image.rotate(180)
+        if self.screen_reversed:
+            image = image.rotate(180)
 
             if refresh == "a":
                 self.Screen.display_auto(image)
