@@ -85,7 +85,7 @@ class Elements:
 
     class Label(TextElement):
         def __init__(self, page, location, size, border=(0, 0), text="", font_size=12, color="black",
-                     background=None, show=True, align="L"):
+                     background=None, show=True, align="left"):
             """
             相较于TextElement，这个模块不支持自定义字体，但是可以实现文本的左对齐和右对齐和添加边界(border)功能
             """
@@ -109,7 +109,7 @@ class Elements:
         def update(self, display=True, refresh="a"):
             self.image = self.background.copy()
             self._image_draw = _ImageDraw.ImageDraw(self.image)
-            if self.align == "L":
+            if self.align == "left":
                 x = self.border[0]
             else:
                 length = 0
@@ -123,9 +123,9 @@ class Elements:
                         length += add
                     else:
                         length += font_size
-                if self.align == "C":
+                if self.align == "center":
                     x = _ceil((self.size[0] - length) / 2)
-                elif self.align == "R":
+                elif self.align == "right":
                     x = self.size[0] - 2 * self.border[0] - length
                 else:
                     raise ValueError
@@ -184,7 +184,7 @@ class Elements:
     class LabelButton(Label):
         def __init__(self, page, size, func=lambda: None, location=(0, 0), border=(0, 0), text="",
                      font_size=12, color="black", border_color="black", border_width=0, background=None, show=True,
-                     align="C"):
+                     align="center"):
             self.border_color = border_color
             self.border_width = border_width
             self.func = func
@@ -207,7 +207,7 @@ class Elements:
             self.image = self.background.copy()
             self._image_draw = _ImageDraw.ImageDraw(self.image)
             font_size = self._font.size
-            if self.align == "L":
+            if self.align == "left":
                 x = self.border[0]
             else:
                 length = 0
@@ -220,9 +220,9 @@ class Elements:
                         length += add
                     else:
                         length += font_size
-                if self.align == "C":
+                if self.align == "center":
                     x = _ceil((self.size[0] - length) / 2)
-                elif self.align == "R":
+                elif self.align == "right":
                     x = self.size[0] - 2 * self.border[0] - length
                 else:
                     raise ValueError
@@ -239,10 +239,11 @@ class Elements:
             self.touch_records[0].func = func
 
     class MultipleLinesText(Label):
-        def __init__(self, page, location, size, text="", border=(0, 0), font_size=12, color="black", background=None,
-                     space=0, show=True):
+        def __init__(self, page, location, size, text="", border=(0, 0), font_size=12, color="black",
+                     space=0, show=True, align="left"):
             self.space = space
-            super().__init__(page, location, size, border, text, font_size, color, background=background, show=show)
+            super().__init__(page, location, size, border, text, font_size, color,
+                             background=_Image.new("RGBA", (296, size[1]), (255, 255, 255, 0)), show=show, align=align)
 
         def set_text(self, value, display=True, refresh="a"):
             self.text = value
@@ -275,20 +276,21 @@ class Elements:
                         new_text += f"{i[start: end]}\n"
                         start = end
                 new_text += f"{i[start: end]}\n"
-            self._image_draw.text(self.border, new_text, self.color, self._font, space=self.space)
+            self._image_draw.text(self.border, new_text, self.color, self._font, space=self.space, align=self.align)
             self.page.update(display, refresh)
 
     # 实现一个多页文本element
     class MultiplePagesText(MultipleLinesText):
-        def __init__(self, page, location, size, text="", border=(0, 0), font_size=12, color="black", background=None,
-                     space=0, show=True, guide_line_width=2, slide=True):
+        def __init__(self, page, location, size, text="", border=(0, 0), font_size=12, color="black",
+                     space=0, show=True, guide_line_width=2, slide=True, align="left"):
             self.font_size = font_size
             self.at = 0
             self.slide = slide
-            self.content = self.text_split(text, (size[0] - 2 * border[0], size[1] - 2 * border[1]), font_size)
+            self.content = self.text_split(text, (size[0] - 2 * border[0], size[1] - 2 * border[1]), font_size,
+                                           space)
             self.guide_line_height = max(10, _ceil(size[1] / len(self.content)))
             self.guide_line_width = guide_line_width
-            super().__init__(page, location, size, text, border, font_size, color, background, space, show)
+            super().__init__(page, location, size, text, border, font_size, color, space, show, align)
 
             self.records = [_SlideY((self.location[0], self.location[0]+self.size[0],
                                      self.location[1], self.location[1]+self.size[1]),
@@ -310,14 +312,14 @@ class Elements:
             return len(self.content)
 
         @staticmethod
-        def text_split(text, area_size, font_size) -> list:
+        def text_split(text, area_size, font_size, space) -> list:
             if font_size % 12 == 0:
                 add = font_size * 2 / 3
             else:
                 add = font_size / 2
 
             length = add
-            height = font_size
+            height = font_size + space
 
             result = []
 
@@ -327,25 +329,25 @@ class Elements:
             for t in range(len(text)):
                 character = text[t]
 
+                if " " <= character <= "~":
+                    length += add
+                else:
+                    length += font_size
+
                 if character == "\n":
                     length = add
                     last_line = text[start: t] + "\n"
                     start = t + 1
                     cur_text += last_line
                     height += font_size
-                elif " " <= character <= "~":
-                    length += add
-                else:
-                    length += font_size
-
-                if length > area_size[0]:
+                elif length > area_size[0]:
                     length = add
                     last_line = text[start: t] + "\n"
                     start = t
                     cur_text += last_line
                     height += font_size
                 if height > area_size[1]:
-                    height = font_size
+                    height = font_size*2
                     length = add
                     result.append(cur_text)
                     cur_text = last_line
@@ -360,7 +362,7 @@ class Elements:
         def set_text(self, value, display=True, refresh="a"):
             self.text = value
             self.content = self.text_split(value, (self.size[0] - 2 * self.border[0], self.size[1] - 2 * self.border[1])
-                                           , self.font_size)
+                                           , self.font_size, self.space)
             self.guide_line_height = max(10, _ceil(self.size[1] / len(self.content)))
             self.at = 0
             self.update(display, refresh)
@@ -368,7 +370,8 @@ class Elements:
         def update(self, display=True, refresh="a"):
             self.image = self.background.copy()
             self._image_draw = _ImageDraw.ImageDraw(self.image)
-            self._image_draw.text(self.border, self.content[self.at], self.color, self._font, space=self.space)
+            self._image_draw.text(self.border, self.content[self.at], self.color, self._font, space=self.space,
+                                  align=self.align)
             if len(self.content) > 1:
                 y = (self.size[1] - self.guide_line_height)*self.at/len(self.content)
                 self._image_draw.line((self.size[0], y, self.size[0], y+self.guide_line_height), self.color,

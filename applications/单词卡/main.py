@@ -49,12 +49,12 @@ class WordsPage(struct.Page):
         self.words = json.load(open("applications/单词卡/words.json"))
         self.flag = False
         self.clock = self.add_element(lib.Elements.Label(self, (0, 0), size=(296, 30), border=(0, 8), font_size=16,
-                                                         align="C"))
+                                                         align="center"))
 
         self.word = self.add_element(lib.Elements.Label(self, (0, 40), (296, 50), (0, 0), text="abandon", font_size=36,
-                                                        align="C"))
+                                                        align="center"))
         self.mean = self.add_element(lib.Elements.Label(self, (0, 80), (296, 128), (0, 0), "抛弃", font_size=16,
-                                                        align="C"))
+                                                        align="center"))
 
         self.touch_records = [SlideX((0, 296, 0, 128), self.slide_handler)]
 

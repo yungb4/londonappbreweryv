@@ -186,12 +186,12 @@ class ThemeSelectPage(struct.Page):
             self, (160, 28), self.select,  (68, 100),
             background=Image.open("applications/设置/resources/title_blank.png"), border=(8, 2)))
 
-        self.title_text = lib.Elements.Label(self, (92, 100), (133, 28), border=(0, 4), font_size=16, align="C")
+        self.title_text = lib.Elements.Label(self, (92, 100), (133, 28), border=(0, 4), font_size=16, align="center")
         self.add_element(self.title_text)
 
         self.index_show = lib.Elements.Label(self, (230, 5), (60, 18), border=(0, 4),
                                              background=Image.open("applications/设置/resources/index_blank.png"),
-                                             align="C")
+                                             align="center")
         self.add_element(self.index_show)
 
         self.tick = lib.Elements.Image(self, (73, 100), image=Image.open("resources/images/ok.png"), show=False)

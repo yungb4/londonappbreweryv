@@ -79,7 +79,7 @@ class CountPage(lib.Pages.PageWithTitle):
     def __init__(self, book):
         super().__init__(book, "倒计时")
         self.last_time = \
-            self.add_element(lib.Elements.Label(self, (0, 40), (296, 40), text="00:00", font_size=48, align="C"))
+            self.add_element(lib.Elements.Label(self, (0, 40), (296, 40), text="00:00", font_size=48, align="center"))
         self.pause_image = Image.open("applications/倒计时/pause.png")
         self.continue_image = Image.open("applications/倒计时/continue.png")
         self.cancel_image = Image.open("applications/倒计时/cancel.png")
@@ -98,7 +98,7 @@ class CountPage(lib.Pages.PageWithTitle):
         self.paused = 0
 
         self.clock = self.add_element(lib.Elements.Label(self, (0, 0), size=(296, 30), border=(5, 8), font_size=16,
-                                                         align="R"))
+                                                         align="right"))
 
     def clock_updater(self):
         last_clock = time.strftime("%H:%M", time.localtime())
