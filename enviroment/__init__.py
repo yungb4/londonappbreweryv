@@ -378,12 +378,19 @@ class Env:
             raise AttributeError("plugins no found.")
 
     def display(self, image=None, refresh="a"):
-        if not image:
-            image = self.Now.render()
-        if self.display_lock.acquire(blocking=False):
+        if image:
             self.Screen.wait_busy()
-            self.display_lock.release()
+            if refresh == "a":
+                self.Screen.display_auto(image)
+            elif refresh == "t":
+                self.Screen.display(image)
+            elif refresh == "f":
+                self.Screen.display_partial(image)
 
+        elif self.display_lock.acquire(blocking=False):
+            self.Screen.wait_busy()
+            image = self.Now.render()
+            self.display_lock.release()
             self._update_temp = False
 
             draw = _ImageDraw.ImageDraw(image)
