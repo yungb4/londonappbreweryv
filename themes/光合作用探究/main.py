@@ -106,7 +106,8 @@ class Connector:
                             new_data[record_time] = self.data[record_time].to_dict()
                     ws.send(json.dumps({"type": "data_result", "data": new_data}))
                 elif data["type"] == "get_now":
-                    ws.send(json.dumps({"type": "now_result", "data": self.data[sorted(self.data.keys())[-1]].to_dict()}))
+                    ws.send(
+                        json.dumps({"type": "now_result", "data": self.data[sorted(self.data.keys())[-1]].to_dict()}))
 
             except Exception as e:
                 self.logger.error("[%s] %s" % (self.address, e))
@@ -165,7 +166,7 @@ class Connector:
                             random.randint(0, 100))
             self.data_callback(new_data)
             if self.status:
-                self.data[time.time()] = new_data
+                self.data[int(time.time())] = new_data
 
             # 等待随机时间
             time.sleep(5)
@@ -180,7 +181,6 @@ class Connector:
         self.status = False
         self.ws.send(json.dumps({"type": "cmd_result", "data": "stopped"}))
         self.status_callback(Status(self.status, self.box, self.server))
-
 
 
 class MainPage(lib.Pages.PageWithTitle):
@@ -213,7 +213,6 @@ class MainPage(lib.Pages.PageWithTitle):
         self.control_button = self.add_element(lib.Elements.LabelButton(self, size=(60, 30), func=self.control,
                                                                         location=(105, 85), text="开始",
                                                                         font_size=24, border_width=2))
-
 
     def active(self):
         super().active()
